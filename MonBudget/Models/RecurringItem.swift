@@ -62,8 +62,20 @@ final class RecurringItem {
     var anchorDate: Date = Date()
     var isActive: Bool = true
     var createdAt: Date = Date()
+    var isCredit: Bool = false
+    var remainingInstallments: Int = 12
+    var remainingAsOfDate: Date = Date()
 
-    init(name: String, amount: Double, kind: ItemKind, frequency: Frequency, dayOfMonth: Int) {
+    init(
+        name: String,
+        amount: Double,
+        kind: ItemKind,
+        frequency: Frequency,
+        dayOfMonth: Int,
+        isCredit: Bool = false,
+        remainingInstallments: Int = 12,
+        remainingAsOfDate: Date = Date()
+    ) {
         self.id = UUID()
         self.name = name
         self.amount = amount
@@ -73,6 +85,9 @@ final class RecurringItem {
         self.anchorDate = Date()
         self.isActive = true
         self.createdAt = Date()
+        self.isCredit = isCredit
+        self.remainingInstallments = remainingInstallments
+        self.remainingAsOfDate = remainingAsOfDate
     }
 
     var kind: ItemKind {
@@ -91,5 +106,10 @@ final class RecurringItem {
 
     var monthlyAmount: Double {
         amount * frequency.timesPerYear / 12
+    }
+
+    var creditStoredRemaining: Int? {
+        guard kind == .expense && isCredit else { return nil }
+        return max(0, remainingInstallments)
     }
 }

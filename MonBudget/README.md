@@ -6,6 +6,7 @@ Application iPhone (SwiftUI + SwiftData, iOS 17+) de suivi de budget mensuel.
 
 - **Saisie des charges fixes et récurrentes** : nom, montant, fréquence (mensuelle, trimestrielle, semestrielle, annuelle) et jour de prélèvement (1 à 28). Les charges non mensuelles sont automatiquement lissées sur 12 mois.
 - **Saisie des revenus** : même principe, avec équivalent mensuel automatique.
+- **Crédits** : une charge peut être marquée comme crédit avec son nombre d'échéances restantes (saisie libre, 12 par défaut). Le compteur se décrémente automatiquement à chaque prélèvement passé ; la liste et la projection du mois suivant affichent la date de fin du crédit, qui disparaît des totaux et projections une fois terminé.
 - **Curseur des dépenses non prévues** : un curseur réglable au mois pour mettre de côté une enveloppe « imprévus », persistée entre les lancements.
 - **Tableau de bord du mois en cours** : revenus mensualisés, charges lissées, montant déjà débité à ce jour, montant encore à débiter, avancement du mois (jour X sur Y), reste à vivre et budget par jour.
 - **Projection du mois suivant** : revenus et charges prévues (avec le détail des prélèvements par jour), imprévus estimés au même niveau, reste à vivre projeté et budget par jour.

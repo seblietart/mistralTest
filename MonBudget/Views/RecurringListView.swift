@@ -76,6 +76,17 @@ struct RecurringListView: View {
                             Text(item.monthlyAmount, format: .currency(code: "EUR"))
                             Text("/ mois")
                         }
+                        if let remaining = BudgetCalculator.creditRemainingInstallments(item), remaining > 0 {
+                            Text("·")
+                            Text("crédit : \(remaining) échéances restantes")
+                            if let end = BudgetCalculator.creditEndDate(of: item) {
+                                Text("·")
+                                Text("fin \(end.name())")
+                            }
+                        } else if item.creditStoredRemaining != nil {
+                            Text("·")
+                            Text("crédit terminé")
+                        }
                     }
                     .font(.caption)
                     .foregroundStyle(.secondary)
