@@ -7,6 +7,6 @@ struct MonBudgetApp: App {
         WindowGroup {
             ContentView()
         }
-        .modelContainer(for: RecurringItem.self)
+        .modelContainer(for: RecurringItem.self, cloudKitDatabase: .automatic)
     }
 }
