@@ -120,7 +120,15 @@ struct MonthDashboardView: View {
                 }
                 ForEach(nextCharges) { item in
                     HStack {
-                        Text(item.name)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(item.name)
+                            if let remaining = item.creditRemaining,
+                               let end = BudgetCalculator.creditEndDate(of: item, from: nextMonth) {
+                                Text("Crédit · \(remaining) échéances restantes · fin \(end.name(calendar: calendar))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
                         Spacer()
                         Text("le \(item.chargeDay)")
                             .font(.caption)

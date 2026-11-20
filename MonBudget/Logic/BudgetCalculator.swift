@@ -58,4 +58,20 @@ enum BudgetCalculator {
         guard month.monthIndex >= anchor else { return false }
         return (month.monthIndex - anchor) % item.frequency.monthsPerCharge == 0
     }
+
+    static func creditEndDate(of item: RecurringItem, from month: MonthReference) -> MonthReference? {
+        guard let remaining = item.creditRemaining else { return nil }
+        var cursor = month
+        var counted = 0
+        for _ in 0..<(12 * 100) {
+            if chargesIn(item, month: cursor) {
+                counted += 1
+                if counted == remaining {
+                    return cursor
+                }
+            }
+            cursor = cursor.next()
+        }
+        return nil
+    }
 }

@@ -13,6 +13,8 @@ struct ItemFormView: View {
     @State private var frequencySelection: Frequency = .monthly
     @State private var daySelection: Int = 1
     @State private var active: Bool = true
+    @State private var isCredit: Bool = false
+    @State private var installmentsText: String = "12"
 
     init(item: RecurringItem?, defaultKind: ItemKind = .expense) {
         self.item = item
@@ -23,6 +25,10 @@ struct ItemFormView: View {
             _frequencySelection = State(initialValue: item.frequency)
             _daySelection = State(initialValue: item.dayOfMonth)
             _active = State(initialValue: item.isActive)
+            _isCredit = State(initialValue: item.isCredit && item.kind == .expense)
+            if let remaining = item.creditRemaining {
+                _installmentsText = State(initialValue: String(remaining))
+            }
         } else {
             _kindSelection = State(initialValue: defaultKind)
         }
@@ -34,8 +40,17 @@ struct ItemFormView: View {
         return value
     }
 
+    private var installments: Int? {
+        let normalized = installmentsText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let value = Int(normalized), value >= 1 else { return nil }
+        return value
+    }
+
     private var canSave: Bool {
-        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && amount != nil
+        let installmentsValid = kindSelection == .expense && isCredit ? installments != nil : true
+        return !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && amount != nil
+            && installmentsValid
     }
 
     var body: some View {
@@ -48,6 +63,18 @@ struct ItemFormView: View {
                     Picker("Type", selection: $kindSelection) {
                         ForEach(ItemKind.allCases) { kind in
                             Text(kind.label).tag(kind)
+                        }
+                    }
+                    if kindSelection == .expense {
+                        Toggle("C'est un crédit", isOn: $isCredit)
+                        if isCredit {
+                            TextField("Échéances restantes", text: $installmentsText)
+                                .keyboardType(.numberPad)
+                            if let remaining = installments {
+                                Text("Soit \(remaining) mois de prélèvements restants.")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
                     Picker("Fréquence", selection: $frequencySelection) {
@@ -111,13 +138,19 @@ struct ItemFormView: View {
             item.frequency = frequencySelection
             item.dayOfMonth = daySelection
             item.isActive = active
+            item.isCredit = kindSelection == .expense && isCredit
+            if let remaining = installments {
+                item.remainingInstallments = remaining
+            }
         } else {
             let newItem = RecurringItem(
                 name: name.trimmingCharacters(in: .whitespacesAndNewlines),
                 amount: amount,
                 kind: kindSelection,
                 frequency: frequencySelection,
-                dayOfMonth: daySelection
+                dayOfMonth: daySelection,
+                isCredit: kindSelection == .expense && isCredit,
+                remainingInstallments: installments ?? 12
             )
             modelContext.insert(newItem)
         }
