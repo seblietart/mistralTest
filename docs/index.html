@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Mon Budget</title>
+  <meta name="description" content="Suivi de budget mensuel : revenus, charges fixes, dépenses imprévues et projection du mois suivant.">
+  <meta name="theme-color" content="#34c759">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Mon Budget">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="app-title">
+      <h1>Mon Budget</h1>
+      <p class="app-subtitle" id="app-subtitle"></p>
+    </div>
+    <nav class="tabs">
+      <button type="button" id="tab-month" class="tab active">Mois</button>
+      <button type="button" id="tab-items" class="tab">Récurrents</button>
+    </nav>
+  </header>
+
+  <main id="view" aria-live="polite"></main>
+
+  <dialog id="form-dialog" class="form-dialog">
+    <form id="item-form" novalidate>
+      <h2 id="form-title">Nouvel élément</h2>
+      <label>Nom
+        <input id="f-name" type="text" maxlength="60" placeholder="Loyer, Salaire…" autocomplete="off">
+      </label>
+      <label>Montant
+        <input id="f-amount" type="text" inputmode="decimal" placeholder="0,00" autocomplete="off">
+      </label>
+      <label>Type
+        <select id="f-kind">
+          <option value="expense">Dépense</option>
+          <option value="income">Revenu</option>
+        </select>
+      </label>
+      <label id="frequency-label">Fréquence
+        <select id="f-frequency">
+          <option value="monthly">Mensuelle</option>
+          <option value="everyThreeMonths">Trimestrielle</option>
+          <option value="everySixMonths">Semestrielle</option>
+          <option value="yearly">Annuelle</option>
+        </select>
+      </label>
+      <label id="credit-type-label" class="hidden">Nature de la dépense
+        <select id="f-credit-type">
+          <option value="recurring">Récurrente (sans fin)</option>
+          <option value="credit">Crédit (avec échéances)</option>
+        </select>
+      </label>
+      <label id="installments-label" class="hidden">Nombre d’échéances restantes
+        <input id="f-installments" type="number" min="1" max="600" inputmode="numeric" placeholder="12" autocomplete="off">
+      </label>
+      <label id="day-label">Jour de prélèvement
+        <select id="f-day"></select>
+      </label>
+      <label id="active-label" class="hidden check">
+        <input type="checkbox" id="f-active"> Actif
+      </label>
+      <p class="form-equivalent">Équivalent mensuel : <strong id="f-equivalent">—</strong></p>
+      <footer class="form-actions">
+        <button type="button" id="f-cancel" class="secondary">Annuler</button>
+        <button type="submit" class="primary">Enregistrer</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <input id="import-file" type="file" accept="application/json,.json" class="hidden">
+
+  <script src="app.js"></script>
+</body>
+</html>
