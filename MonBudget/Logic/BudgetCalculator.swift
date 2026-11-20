@@ -37,9 +37,9 @@ struct MonthReference: Equatable {
 }
 
 enum BudgetCalculator {
-    static func monthlyTotal(_ items: [RecurringItem], kind: ItemKind) -> Double {
+    static func monthlyTotal(_ items: [RecurringItem], kind: ItemKind, now: Date = Date(), calendar: Calendar = .current) -> Double {
         items
-            .filter { $0.kind == kind && $0.isActive }
+            .filter { $0.kind == kind && isActiveCharge($0, now: now, calendar: calendar) }
             .reduce(0) { $0 + $1.monthlyAmount }
     }
 
@@ -47,8 +47,12 @@ enum BudgetCalculator {
         items.reduce(0) { $0 + $1.amount }
     }
 
-    static func charges(_ items: [RecurringItem], kind: ItemKind, month: MonthReference) -> [RecurringItem] {
-        items.filter { $0.kind == kind && $0.isActive && chargesIn($0, month: month) }
+    static func charges(_ items: [RecurringItem], kind: ItemKind, month: MonthReference, now: Date = Date(), calendar: Calendar = .current) -> [RecurringItem] {
+        items.filter {
+            $0.kind == kind
+                && isActiveCharge($0, now: now, calendar: calendar)
+                && chargesIn($0, month: month)
+        }
     }
 
     static func chargesIn(_ item: RecurringItem, month: MonthReference) -> Bool {
@@ -59,14 +63,52 @@ enum BudgetCalculator {
         return (month.monthIndex - anchor) % item.frequency.monthsPerCharge == 0
     }
 
-    static func creditEndDate(of item: RecurringItem, from month: MonthReference) -> MonthReference? {
-        guard let remaining = item.creditRemaining else { return nil }
-        var cursor = month
-        var counted = 0
+    static func isActiveCharge(_ item: RecurringItem, now: Date = Date(), calendar: Calendar = .current) -> Bool {
+        guard item.isActive else { return false }
+        guard let remaining = creditRemainingInstallments(item, now: now, calendar: calendar) else { return true }
+        return remaining > 0
+    }
+
+    static func installmentDate(of item: RecurringItem, month: MonthReference, calendar: Calendar = .current) -> Date? {
+        guard chargesIn(item, month: month) else { return nil }
+        return calendar.date(from: DateComponents(year: month.year, month: month.month, day: item.chargeDay))
+    }
+
+    static func creditPaidSinceReference(_ item: RecurringItem, now: Date = Date(), calendar: Calendar = .current) -> Int {
+        guard item.creditStoredRemaining != nil else { return 0 }
+        let today = calendar.startOfDay(for: now)
+        let referenceDay = calendar.startOfDay(for: item.remainingAsOfDate)
+        var cursor = MonthReference.containing(item.remainingAsOfDate, calendar: calendar)
+        let current = MonthReference.containing(now, calendar: calendar)
+        var paid = 0
+        while cursor.monthIndex <= current.monthIndex {
+            if let occurrence = installmentDate(of: item, month: cursor, calendar: calendar) {
+                let occurrenceDay = calendar.startOfDay(for: occurrence)
+                if occurrenceDay > referenceDay && occurrenceDay < today {
+                    paid += 1
+                }
+            }
+            cursor = cursor.next()
+        }
+        return paid
+    }
+
+    static func creditRemainingInstallments(_ item: RecurringItem, now: Date = Date(), calendar: Calendar = .current) -> Int? {
+        guard let stored = item.creditStoredRemaining else { return nil }
+        return max(0, stored - creditPaidSinceReference(item, now: now, calendar: calendar))
+    }
+
+    static func creditEndDate(of item: RecurringItem, now: Date = Date(), calendar: Calendar = .current) -> MonthReference? {
+        guard var remaining = creditRemainingInstallments(item, now: now, calendar: calendar), remaining > 0 else {
+            return nil
+        }
+        let today = calendar.startOfDay(for: now)
+        var cursor = MonthReference.containing(now, calendar: calendar)
         for _ in 0..<(12 * 100) {
-            if chargesIn(item, month: cursor) {
-                counted += 1
-                if counted == remaining {
+            if let occurrence = installmentDate(of: item, month: cursor, calendar: calendar),
+               calendar.startOfDay(for: occurrence) >= today {
+                remaining -= 1
+                if remaining == 0 {
                     return cursor
                 }
             }

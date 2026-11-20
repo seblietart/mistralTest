@@ -59,10 +59,6 @@ struct RecurringListView: View {
         }
     }
 
-    private func creditEndDate(for item: RecurringItem) -> MonthReference? {
-        BudgetCalculator.creditEndDate(of: item, from: MonthReference.containing(Date()))
-    }
-
     private func row(for item: RecurringItem) -> some View {
         Button {
             editingItem = item
@@ -80,13 +76,16 @@ struct RecurringListView: View {
                             Text(item.monthlyAmount, format: .currency(code: "EUR"))
                             Text("/ mois")
                         }
-                        if let remaining = item.creditRemaining {
+                        if let remaining = BudgetCalculator.creditRemainingInstallments(item), remaining > 0 {
                             Text("·")
                             Text("crédit : \(remaining) échéances restantes")
-                        }
-                        if let end = creditEndDate(for: item) {
+                            if let end = BudgetCalculator.creditEndDate(of: item) {
+                                Text("·")
+                                Text("fin \(end.name())")
+                            }
+                        } else if item.creditStoredRemaining != nil {
                             Text("·")
-                            Text("fin \(end.name())")
+                            Text("crédit terminé")
                         }
                     }
                     .font(.caption)

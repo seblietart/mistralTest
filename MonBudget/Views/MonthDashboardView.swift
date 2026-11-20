@@ -122,8 +122,9 @@ struct MonthDashboardView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(item.name)
-                            if let remaining = item.creditRemaining,
-                               let end = BudgetCalculator.creditEndDate(of: item, from: nextMonth) {
+                            if let remaining = BudgetCalculator.creditRemainingInstallments(item, now: now, calendar: calendar),
+                               remaining > 0,
+                               let end = BudgetCalculator.creditEndDate(of: item, now: now, calendar: calendar) {
                                 Text("Crédit · \(remaining) échéances restantes · fin \(end.name(calendar: calendar))")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)

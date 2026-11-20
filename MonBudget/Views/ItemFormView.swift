@@ -26,7 +26,7 @@ struct ItemFormView: View {
             _daySelection = State(initialValue: item.dayOfMonth)
             _active = State(initialValue: item.isActive)
             _isCredit = State(initialValue: item.isCredit && item.kind == .expense)
-            if let remaining = item.creditRemaining {
+            if let remaining = item.creditStoredRemaining {
                 _installmentsText = State(initialValue: String(remaining))
             }
         } else {
@@ -71,7 +71,7 @@ struct ItemFormView: View {
                             TextField("Échéances restantes", text: $installmentsText)
                                 .keyboardType(.numberPad)
                             if let remaining = installments {
-                                Text("Soit \(remaining) mois de prélèvements restants.")
+                                Text("Soit \(remaining) échéances restantes, décomptées automatiquement à chaque prélèvement.")
                                     .font(.footnote)
                                     .foregroundStyle(.secondary)
                             }
@@ -141,6 +141,7 @@ struct ItemFormView: View {
             item.isCredit = kindSelection == .expense && isCredit
             if let remaining = installments {
                 item.remainingInstallments = remaining
+                item.remainingAsOfDate = Date()
             }
         } else {
             let newItem = RecurringItem(
@@ -150,7 +151,8 @@ struct ItemFormView: View {
                 frequency: frequencySelection,
                 dayOfMonth: daySelection,
                 isCredit: kindSelection == .expense && isCredit,
-                remainingInstallments: installments ?? 12
+                remainingInstallments: installments ?? 12,
+                remainingAsOfDate: Date()
             )
             modelContext.insert(newItem)
         }
