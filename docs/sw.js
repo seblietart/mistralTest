@@ -1,4 +1,4 @@
-const CACHE = "monbudget-v7";
+const CACHE = "monbudget-v8";
 const ASSETS = [
   "./",
   "./index.html",
@@ -27,15 +27,31 @@ self.addEventListener("activate", event => {
 });
 
 self.addEventListener("fetch", event => {
-  if (event.request.method !== "GET") return;
+  const request = event.request;
+  if (request.method !== "GET") return;
+  const url = new URL(request.url);
+  if (url.origin !== location.origin) return;
+  const isShell = request.mode === "navigate" || /\.(js|css|webmanifest)$/.test(url.pathname);
+  if (!isShell) {
+    event.respondWith(
+      caches.match(request).then(cached =>
+        cached ||
+        fetch(request).then(response => {
+          const copy = response.clone();
+          caches.open(CACHE).then(cache => cache.put(request, copy));
+          return response;
+        })
+      )
+    );
+    return;
+  }
   event.respondWith(
-    caches.match(event.request).then(cached =>
-      cached ||
-      fetch(event.request).then(response => {
-        const copy = response.clone();
-        caches.open(CACHE).then(cache => cache.put(event.request, copy));
-        return response;
-      }).catch(() => caches.match("./index.html"))
+    fetch(request).then(response => {
+      const copy = response.clone();
+      caches.open(CACHE).then(cache => cache.put(request, copy));
+      return response;
+    }).catch(() =>
+      caches.match(request).then(cached => cached || caches.match("./index.html"))
     )
   );
 });

@@ -210,6 +210,16 @@ function itemRow(item) {
   </div>`;
 }
 
+function parseBudget(value) {
+  const raw = parseFloat(String(value).replace(",", "."));
+  return Number.isFinite(raw) && raw > 0 ? Math.round(raw) : 0;
+}
+
+function unplannedCardBudget(card, value) {
+  const other = card === 1 ? unplannedBudget2 : unplannedBudget1;
+  return Math.min(value, Math.max(0, monthlyTotal(items, "income") - monthlyTotal(items, "expense") - other));
+}
+
 function zoneSlider(card, base, value, maxUnplanned, disabled) {
   const totalMax = Math.max(base + Math.max(0, Math.round(maxUnplanned)), 1);
   const current = Math.min(base + value, totalMax);
@@ -295,9 +305,11 @@ function renderMonth() {
       <div class="row"><span>Carte débit différé 1</span><strong class="green" id="unplanned-value1">${money(base1 + eff1)}</strong></div>
       ${zoneSlider(1, base1, eff1, leftover - eff2, leftover <= 0)}
       <p class="caption">Zone orangée : ${money(base1)} déjà imputés par les dépenses récurrentes · Imprévus : ${money(eff1)}</p>
+      <div class="row small budget-row"><span>Budget imprévus à saisir</span><span class="budget-input"><input type="text" inputmode="decimal" id="unplanned-input1" value="${eff1}"${leftover <= 0 ? " disabled" : ""} aria-label="Budget imprévus carte débit différé 1 en euros"><span>€</span></span></div>
       <div class="row"><span>Carte débit différé 2</span><strong class="green" id="unplanned-value2">${money(base2 + eff2)}</strong></div>
       ${zoneSlider(2, base2, eff2, leftover - eff1, leftover <= 0)}
       <p class="caption">Zone orangée : ${money(base2)} déjà imputés par les dépenses récurrentes · Imprévus : ${money(eff2)}</p>
+      <div class="row small budget-row"><span>Budget imprévus à saisir</span><span class="budget-input"><input type="text" inputmode="decimal" id="unplanned-input2" value="${eff2}"${leftover <= 0 ? " disabled" : ""} aria-label="Budget imprévus carte débit différé 2 en euros"><span>€</span></span></div>
       <div class="row"><span>Reste à vivre après imprévus</span><strong class="${remaining < 0 ? "red" : ""}">${money(remaining)}</strong></div>
       <div class="row"><span>Budget par jour</span><strong>${money(perDay)}</strong></div>
       ${leftover <= 0 ? '<p class="warning">⚠️ Vos charges dépassent vos revenus. Mettez le curseur à 0 ou revoyez vos charges.</p>' : ""}
@@ -515,6 +527,8 @@ view.addEventListener("input", event => {
     save(card === 1 ? STORAGE_UNPLANNED1 : STORAGE_UNPLANNED2, value);
     const label = document.getElementById(`unplanned-value${card}`);
     if (label) label.textContent = money(base + value);
+    const input = document.getElementById(`unplanned-input${card}`);
+    if (input && document.activeElement !== input) input.value = value;
     const total = Math.max(Number(event.target.max) || 0, 1);
     const current = Math.min(Number(event.target.value), total);
     const segment = document.getElementById(`zone-rail-green${card}`);
@@ -522,11 +536,32 @@ view.addEventListener("input", event => {
       segment.style.left = Math.min(100, Math.max(0, base / total * 100)) + "%";
       segment.style.width = Math.min(100, Math.max(0, (current - base) / total * 100)) + "%";
     }
+  } else if (event.target.id === "unplanned-input1" || event.target.id === "unplanned-input2") {
+    const card = event.target.id === "unplanned-input1" ? 1 : 2;
+    const value = parseBudget(event.target.value);
+    if (card === 1) unplannedBudget1 = value;
+    else unplannedBudget2 = value;
+    save(card === 1 ? STORAGE_UNPLANNED1 : STORAGE_UNPLANNED2, value);
+    const effective = unplannedCardBudget(card, value);
+    const slider = document.getElementById(`unplanned-slider${card}`);
+    const base = Number(slider && slider.dataset.base) || 0;
+    if (slider) {
+      if (base + effective >= Number(slider.min)) slider.value = Math.min(base + effective, Math.max(Number(slider.max), 1));
+      const total = Math.max(Number(slider.max), 1);
+      const current = Math.min(base + effective, total);
+      const segment = document.getElementById(`zone-rail-green${card}`);
+      if (segment) {
+        segment.style.left = Math.min(100, Math.max(0, base / total * 100)) + "%";
+        segment.style.width = Math.min(100, Math.max(0, (current - base) / total * 100)) + "%";
+      }
+    }
+    const label = document.getElementById(`unplanned-value${card}`);
+    if (label) label.textContent = money(base + effective);
   }
 });
 
 view.addEventListener("change", event => {
-  if (event.target.id === "unplanned-slider1" || event.target.id === "unplanned-slider2") {
+  if (["unplanned-slider1", "unplanned-slider2", "unplanned-input1", "unplanned-input2"].includes(event.target.id)) {
     render();
   }
 });
