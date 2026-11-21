@@ -61,6 +61,13 @@
       <label id="installments-label" class="hidden">Nombre d’échéances restantes
         <input id="f-installments" type="number" min="1" max="600" inputmode="numeric" placeholder="12" autocomplete="off">
       </label>
+      <label id="debit-label" class="hidden">Imputation
+        <select id="f-debit">
+          <option value="0">Prélèvement récurrent</option>
+          <option value="1">Débit différé 1</option>
+          <option value="2">Débit différé 2</option>
+        </select>
+      </label>
       <label id="day-label">Jour de prélèvement
         <select id="f-day"></select>
       </label>
