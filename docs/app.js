@@ -199,24 +199,28 @@ function itemRow(item) {
   </div>`;
 }
 
-function zoneTrack(base, value, max) {
-  const total = Math.max(Number(max) || 0, 1);
-  const basePct = Math.min(100, Math.max(0, (Number(base) || 0) / total * 100));
-  const fillPct = Math.min(100, Math.max(basePct, (Number(value) || 0) / total * 100));
-  return `linear-gradient(to right, var(--orange) 0% ${basePct}%, var(--accent) ${basePct}% ${fillPct}%, var(--border) ${fillPct}% 100%)`;
-}
-
 function zoneSlider(card, base, value, maxUnplanned, disabled) {
-  const totalMax = base + Math.max(0, Math.round(maxUnplanned));
+  const totalMax = Math.max(base + Math.max(0, Math.round(maxUnplanned)), 1);
   const current = Math.min(base + value, totalMax);
-  const track = zoneTrack(base, current, totalMax);
-  return `<input type="range" class="zone" id="unplanned-slider${card}" data-base="${base}" min="${base}" max="${totalMax}" step="5" value="${current}"${disabled ? " disabled" : ""} style="--track:${track}">`;
+  const basePct = Math.min(100, Math.max(0, base / totalMax * 100));
+  const greenPct = Math.min(100, Math.max(0, (current - base) / totalMax * 100));
+  return `<div class="zone-control">
+    <div class="zone-rail">
+      <div class="zone-rail-seg zone-rail-green" id="zone-rail-green${card}" style="left:${basePct}%;width:${greenPct}%"></div>
+      <div class="zone-rail-seg zone-rail-orange" style="width:${basePct}%"></div>
+    </div>
+    <input type="range" class="zone" id="unplanned-slider${card}" data-base="${base}" min="${base}" max="${totalMax}" step="5" value="${current}"${disabled ? " disabled" : ""} aria-label="Imprévus imputés sur la carte débit différé ${card}">
+  </div>`;
 }
 
-function deferredCardSection(card, base, unplanned) {
+function deferredCardSection(card, base, unplanned, charges) {
+  const list = charges.length
+    ? `<div class="card-entries">${charges.map(item => `<div class="row small"><span>${escapeHtml(item.name)}${item.isCredit ? " (échéance)" : ""}</span><span class="muted">le ${item.day} · ${money(item.amount)}</span></div>`).join("")}</div>`
+    : `<p class="caption">Aucune imputation de dépense récurrente ce mois-ci.</p>`;
   return `<section class="card">
     <h2>Carte débit différé ${card}</h2>
-    <div class="row"><span>Dépenses récurrentes imputées</span><strong>${money(base)}</strong></div>
+    <div class="row"><span>Dépenses récurrentes imputées</span><strong class="orange">${money(base)}</strong></div>
+    ${list}
     <div class="row"><span>Dépenses imprévues imputées</span><strong>${money(unplanned)}</strong></div>
     <div class="row big"><span>Total imputé sur la carte</span><strong class="orange">${money(base + unplanned)}</strong></div>
   </section>`;
@@ -270,9 +274,9 @@ function renderMonth() {
       <p class="caption">Jour ${today} sur ${days}</p>
     </section>
 
-    ${deferredCardSection(1, base1, eff1)}
+    ${deferredCardSection(1, base1, eff1, monthCharges.filter(i => (i.debitCard || 0) === 1))}
 
-    ${deferredCardSection(2, base2, eff2)}
+    ${deferredCardSection(2, base2, eff2, monthCharges.filter(i => (i.debitCard || 0) === 2))}
 
     <section class="card">
       <h2>Dépenses non prévues</h2>
@@ -499,7 +503,13 @@ view.addEventListener("input", event => {
     save(card === 1 ? STORAGE_UNPLANNED1 : STORAGE_UNPLANNED2, value);
     const label = document.getElementById(`unplanned-value${card}`);
     if (label) label.textContent = money(base + value);
-    event.target.style.setProperty("--track", zoneTrack(base, Number(event.target.value), Number(event.target.max)));
+    const total = Math.max(Number(event.target.max) || 0, 1);
+    const current = Math.min(Number(event.target.value), total);
+    const segment = document.getElementById(`zone-rail-green${card}`);
+    if (segment) {
+      segment.style.left = Math.min(100, Math.max(0, base / total * 100)) + "%";
+      segment.style.width = Math.min(100, Math.max(0, (current - base) / total * 100)) + "%";
+    }
   }
 });
 

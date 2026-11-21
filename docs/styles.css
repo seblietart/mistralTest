@@ -190,19 +190,54 @@ input[type="range"] {
   height: 36px;
 }
 
-input[type="range"].zone {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
+.zone-control {
+  position: relative;
   height: 28px;
   margin: 12px 0 2px;
+}
+
+.zone-rail {
+  position: absolute;
+  top: 8px;
+  left: 13px;
+  right: 13px;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.zone-rail-seg {
+  position: absolute;
+  top: 0;
+  height: 100%;
+}
+
+.zone-rail-orange {
+  left: 0;
+  background: var(--orange);
+}
+
+.zone-rail-green {
+  background: var(--accent);
+}
+
+input[type="range"].zone {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 28px;
+  margin: 0;
+  -webkit-appearance: none;
+  appearance: none;
   background: transparent;
 }
 
 input[type="range"].zone::-webkit-slider-runnable-track {
   height: 12px;
   border-radius: 999px;
-  background: var(--track, var(--border));
+  background: transparent;
 }
 
 input[type="range"].zone::-webkit-slider-thumb {
@@ -220,7 +255,7 @@ input[type="range"].zone::-webkit-slider-thumb {
 input[type="range"].zone::-moz-range-track {
   height: 12px;
   border-radius: 999px;
-  background: var(--track, var(--border));
+  background: transparent;
 }
 
 input[type="range"].zone::-moz-range-thumb {
@@ -234,6 +269,14 @@ input[type="range"].zone::-moz-range-thumb {
 
 input[type="range"].zone:disabled {
   opacity: 0.5;
+}
+
+.card-entries {
+  margin: 0 0 4px;
+}
+
+.card-entries .row.small {
+  padding: 2px 0;
 }
 
 .orange {
