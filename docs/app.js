@@ -2,6 +2,8 @@
 
 const STORAGE_ITEMS = "monbudget_items_v1";
 const STORAGE_UNPLANNED = "monbudget_unplanned_v1";
+const STORAGE_UNPLANNED1 = "monbudget_unplanned_card1_v1";
+const STORAGE_UNPLANNED2 = "monbudget_unplanned_card2_v1";
 
 const FREQUENCIES = {
   monthly: { label: "Mensuelle", timesPerYear: 12, monthsPerCharge: 1 },
@@ -17,7 +19,13 @@ const dlg = document.getElementById("form-dialog");
 const form = document.getElementById("item-form");
 
 let items = load(STORAGE_ITEMS, []);
-let unplannedBudget = load(STORAGE_UNPLANNED, 100);
+const legacyUnplanned = load(STORAGE_UNPLANNED, 100);
+let unplannedBudget1 = load(STORAGE_UNPLANNED1, null);
+let unplannedBudget2 = load(STORAGE_UNPLANNED2, null);
+if (unplannedBudget1 === null || unplannedBudget2 === null) {
+  if (unplannedBudget1 === null) unplannedBudget1 = Number.isFinite(Number(legacyUnplanned)) ? Number(legacyUnplanned) : 0;
+  if (unplannedBudget2 === null) unplannedBudget2 = 0;
+}
 let currentTab = "month";
 let editingId = null;
 
@@ -39,7 +47,9 @@ function save(key, value) {
 
 function persist() {
   save(STORAGE_ITEMS, items);
-  save(STORAGE_UNPLANNED, unplannedBudget);
+  save(STORAGE_UNPLANNED, unplannedBudget1 + unplannedBudget2);
+  save(STORAGE_UNPLANNED1, unplannedBudget1);
+  save(STORAGE_UNPLANNED2, unplannedBudget2);
 }
 
 function escapeHtml(text) {
@@ -153,7 +163,8 @@ function creditShortMeta(item) {
 
 function chargeRow(item) {
   const credit = item.isCredit ? creditShortMeta(item) : "";
-  return `<div class="row small"><span>${escapeHtml(item.name)}</span><span class="muted">le ${item.day} · ${money(item.amount)}${escapeHtml(credit)}</span></div>`;
+  const deferred = item.debitCard ? ` · débit différé ${item.debitCard}` : "";
+  return `<div class="row small"><span>${escapeHtml(item.name)}</span><span class="muted">le ${item.day} · ${money(item.amount)}${escapeHtml(credit + deferred)}</span></div>`;
 }
 
 function itemMeta(item) {
@@ -161,12 +172,18 @@ function itemMeta(item) {
     const remaining = creditRemaining(item);
     if (remaining <= 0) return `Crédit · terminé`;
     const plural = remaining > 1 ? "s" : "";
-    return `Crédit · le ${item.day} · ${remaining} échéance${plural} restante${plural} · fin ${monthName(creditEndMonth(item))}`;
+    return `Crédit · le ${item.day} · ${remaining} échéance${plural} restante${plural} · fin ${monthName(creditEndMonth(item))}${creditItemMeta(item)}`;
   }
   const extra = item.frequency !== "monthly"
     ? ` · soit ${money(monthlyEquivalent(item))}/mois`
     : "";
-  return `${FREQUENCIES[item.frequency].label} · le ${item.day}${extra}`;
+  const deferred = item.debitCard ? ` · Débit différé ${item.debitCard}` : "";
+  return `${FREQUENCIES[item.frequency].label} · le ${item.day}${extra}${deferred}`;
+}
+
+function creditItemMeta(item) {
+  if (item.debitCard) return ` · Débit différé ${item.debitCard}`;
+  return "";
 }
 
 function itemRow(item) {
@@ -180,6 +197,29 @@ function itemRow(item) {
       <button type="button" class="item-delete" data-action="delete" data-id="${item.id}" aria-label="Supprimer ${escapeHtml(item.name)}">🗑️</button>
     </div>
   </div>`;
+}
+
+function zoneTrack(base, value, max) {
+  const total = Math.max(Number(max) || 0, 1);
+  const basePct = Math.min(100, Math.max(0, (Number(base) || 0) / total * 100));
+  const fillPct = Math.min(100, Math.max(basePct, (Number(value) || 0) / total * 100));
+  return `linear-gradient(to right, var(--orange) 0% ${basePct}%, var(--accent) ${basePct}% ${fillPct}%, var(--border) ${fillPct}% 100%)`;
+}
+
+function zoneSlider(card, base, value, maxUnplanned, disabled) {
+  const totalMax = base + Math.max(0, Math.round(maxUnplanned));
+  const current = Math.min(base + value, totalMax);
+  const track = zoneTrack(base, current, totalMax);
+  return `<input type="range" class="zone" id="unplanned-slider${card}" data-base="${base}" min="${base}" max="${totalMax}" step="5" value="${current}"${disabled ? " disabled" : ""} style="--track:${track}">`;
+}
+
+function deferredCardSection(card, base, unplanned) {
+  return `<section class="card">
+    <h2>Carte débit différé ${card}</h2>
+    <div class="row"><span>Dépenses récurrentes imputées</span><strong>${money(base)}</strong></div>
+    <div class="row"><span>Dépenses imprévues imputées</span><strong>${money(unplanned)}</strong></div>
+    <div class="row big"><span>Total imputé sur la carte</span><strong class="orange">${money(base + unplanned)}</strong></div>
+  </section>`;
 }
 
 function renderMonth() {
@@ -201,10 +241,15 @@ function renderMonth() {
   const income = monthlyTotal(items, "income");
   const fixed = monthlyTotal(items, "expense");
   const leftover = income - fixed;
-  const effective = Math.min(unplannedBudget, Math.max(0, leftover));
+  const monthCharges = monthlyCharges(items, cur);
+  const cardBase = card => chargeTotal(monthCharges.filter(i => (i.debitCard || 0) === card));
+  const base1 = cardBase(1);
+  const base2 = cardBase(2);
+  const eff1 = Math.min(unplannedBudget1, Math.max(0, leftover - unplannedBudget2));
+  const eff2 = Math.min(unplannedBudget2, Math.max(0, leftover - unplannedBudget1));
+  const effective = eff1 + eff2;
   const remaining = leftover - effective;
   const perDay = days > 0 ? remaining / days : 0;
-  const monthCharges = monthlyCharges(items, cur);
   const alreadySum = chargeTotal(monthCharges.filter(i => i.day <= today));
   const upcoming = monthCharges.filter(i => i.day > today).sort((a, b) => a.day - b.day);
   const upcomingSum = chargeTotal(upcoming);
@@ -212,7 +257,6 @@ function renderMonth() {
   const nextSum = chargeTotal(nextCharges);
   const nextPerDay = nextDays > 0 ? (income - nextSum - effective) / nextDays : 0;
   const dayPct = Math.min(100, Math.round(today / Math.max(days, 1) * 100));
-  const sliderMax = Math.max(50, Math.round(leftover > 0 ? leftover : 50));
   const projected = income - nextSum - effective;
 
   view.innerHTML = `
@@ -226,10 +270,18 @@ function renderMonth() {
       <p class="caption">Jour ${today} sur ${days}</p>
     </section>
 
+    ${deferredCardSection(1, base1, eff1)}
+
+    ${deferredCardSection(2, base2, eff2)}
+
     <section class="card">
       <h2>Dépenses non prévues</h2>
-      <div class="row big"><span>Curseur imprévus</span><strong class="green" id="unplanned-value">${money(effective)}</strong></div>
-      <input type="range" id="unplanned-slider" min="0" max="${sliderMax}" step="5" value="${Math.round(Math.min(unplannedBudget, sliderMax))}"${leftover <= 0 ? " disabled" : ""}>
+      <div class="row"><span>Carte débit différé 1</span><strong class="green" id="unplanned-value1">${money(base1 + eff1)}</strong></div>
+      ${zoneSlider(1, base1, eff1, leftover - eff2, leftover <= 0)}
+      <p class="caption">Zone orangée : ${money(base1)} déjà imputés par les dépenses récurrentes · Imprévus : ${money(eff1)}</p>
+      <div class="row"><span>Carte débit différé 2</span><strong class="green" id="unplanned-value2">${money(base2 + eff2)}</strong></div>
+      ${zoneSlider(2, base2, eff2, leftover - eff1, leftover <= 0)}
+      <p class="caption">Zone orangée : ${money(base2)} déjà imputés par les dépenses récurrentes · Imprévus : ${money(eff2)}</p>
       <div class="row"><span>Reste à vivre après imprévus</span><strong class="${remaining < 0 ? "red" : ""}">${money(remaining)}</strong></div>
       <div class="row"><span>Budget par jour</span><strong>${money(perDay)}</strong></div>
       ${leftover <= 0 ? '<p class="warning">⚠️ Vos charges dépassent vos revenus. Mettez le curseur à 0 ou revoyez vos charges.</p>' : ""}
@@ -251,7 +303,9 @@ function downloadBackup() {
     app: "MonBudget",
     version: 1,
     exportedAt: new Date().toISOString(),
-    unplannedBudget,
+    unplannedBudget: unplannedBudget1 + unplannedBudget2,
+    unplannedBudget1,
+    unplannedBudget2,
     items
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
@@ -289,6 +343,7 @@ function normalizeImportedItem(raw) {
     active: raw.active === false ? false : true,
     isCredit,
     installments,
+    debitCard: raw.debitCard === 1 || raw.debitCard === 2 ? raw.debitCard : 0,
     anchorDate: isoDate(raw.anchorDate),
     createdAt: isoDate(raw.createdAt)
   };
@@ -309,8 +364,13 @@ function importBackup(text) {
     return { status: "cancelled" };
   }
   items = parsed;
-  if (data && typeof data === "object" && Number.isFinite(Number(data.unplannedBudget))) {
-    unplannedBudget = Number(data.unplannedBudget);
+  if (data && typeof data === "object") {
+    const one = Number(data.unplannedBudget1);
+    const two = Number(data.unplannedBudget2);
+    if (Number.isFinite(one) && one >= 0) unplannedBudget1 = one;
+    if (Number.isFinite(two) && two >= 0) unplannedBudget2 = two;
+    const total = Number(data.unplannedBudget);
+    if (!Number.isFinite(one) && Number.isFinite(total) && total >= 0) unplannedBudget1 = total;
   }
   return { status: "done", count: parsed.length };
 }
@@ -373,6 +433,7 @@ function updateFormVisibility() {
   const kind = document.getElementById("f-kind").value;
   const isCreditOption = kind === "expense" && document.getElementById("f-credit-type").value === "credit";
   document.getElementById("credit-type-label").classList.toggle("hidden", kind !== "expense");
+  document.getElementById("debit-label").classList.toggle("hidden", kind !== "expense");
   document.getElementById("installments-label").classList.toggle("hidden", !isCreditOption);
   document.getElementById("frequency-label").classList.toggle("hidden", isCreditOption);
   toggleDaySelect();
@@ -387,6 +448,7 @@ function openForm(kind, item) {
   document.getElementById("f-kind").value = item ? item.kind : kind;
   document.getElementById("f-frequency").value = item ? item.frequency : "monthly";
   document.getElementById("f-credit-type").value = item && item.isCredit ? "credit" : "recurring";
+  document.getElementById("f-debit").value = item ? String(item.debitCard || 0) : "0";
   document.getElementById("f-installments").value = String(item && item.installments ? item.installments : 12);
   document.getElementById("f-day").value = String(item ? item.day : 1);
   document.getElementById("f-active").checked = item ? item.active : true;
@@ -428,16 +490,21 @@ view.addEventListener("click", event => {
 });
 
 view.addEventListener("input", event => {
-  if (event.target.id === "unplanned-slider") {
-    unplannedBudget = Number(event.target.value);
-    save(STORAGE_UNPLANNED, unplannedBudget);
-    const label = document.getElementById("unplanned-value");
-    if (label) label.textContent = money(unplannedBudget);
+  if (event.target.id === "unplanned-slider1" || event.target.id === "unplanned-slider2") {
+    const card = event.target.id === "unplanned-slider1" ? 1 : 2;
+    const base = Number(event.target.dataset.base) || 0;
+    const value = Math.max(0, Math.round(Number(event.target.value) - base));
+    if (card === 1) unplannedBudget1 = value;
+    else unplannedBudget2 = value;
+    save(card === 1 ? STORAGE_UNPLANNED1 : STORAGE_UNPLANNED2, value);
+    const label = document.getElementById(`unplanned-value${card}`);
+    if (label) label.textContent = money(base + value);
+    event.target.style.setProperty("--track", zoneTrack(base, Number(event.target.value), Number(event.target.max)));
   }
 });
 
 view.addEventListener("change", event => {
-  if (event.target.id === "unplanned-slider") {
+  if (event.target.id === "unplanned-slider1" || event.target.id === "unplanned-slider2") {
     render();
   }
 });
@@ -464,6 +531,9 @@ form.addEventListener("submit", event => {
     ? Math.max(1, Math.round(Number(document.getElementById("f-installments").value) || 1))
     : 0;
   const frequency = isCredit ? "monthly" : document.getElementById("f-frequency").value;
+  const debitCard = kind === "expense"
+    ? (Number(document.getElementById("f-debit").value) === 1 ? 1 : Number(document.getElementById("f-debit").value) === 2 ? 2 : 0)
+    : 0;
   const day = Math.min(28, Math.max(1, Number(document.getElementById("f-day").value) || 1));
   const active = document.getElementById("f-active").checked;
   if (editingId) {
@@ -479,12 +549,13 @@ form.addEventListener("submit", event => {
         active,
         isCredit,
         installments,
+        debitCard,
         anchorDate: resetAnchor ? new Date().toISOString() : item.anchorDate
       });
     }
   } else {
     const now = new Date().toISOString();
-    items.push({ id: uid(), name, amount, kind, frequency, day, active: true, isCredit, installments, anchorDate: now, createdAt: now });
+    items.push({ id: uid(), name, amount, kind, frequency, day, active: true, isCredit, installments, debitCard, anchorDate: now, createdAt: now });
   }
   persist();
   dlg.close();
