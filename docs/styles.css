@@ -271,6 +271,30 @@ input[type="range"].zone:disabled {
   opacity: 0.5;
 }
 
+.budget-input {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.budget-input input {
+  width: 110px;
+  padding: 8px 10px;
+  font-size: 16px;
+  text-align: right;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  appearance: textfield;
+}
+
+.budget-input input:disabled {
+  opacity: 0.5;
+}
+
 .card-entries {
   margin: 0 0 4px;
 }
