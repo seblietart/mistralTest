@@ -144,6 +144,17 @@ function monthlyCharges(list, monthAnchor) {
   return list.filter(i => i.kind === "expense" && i.active && chargesIn(i, monthAnchor));
 }
 
+function cardCharges(list, card, monthAnchor) {
+  return list.filter(i => i.kind === "expense" && i.active && (i.debitCard || 0) === card && chargeApplies(i, monthAnchor));
+}
+
+function chargeApplies(item, monthAnchor) {
+  if (!item.isCredit) return chargesIn(item, monthAnchor);
+  const m = monthIndexOf(monthAnchor);
+  const anchorMonth = monthIndexOf(new Date(item.anchorDate));
+  return m >= anchorMonth && (m - anchorMonth) < Math.max(item.installments || 0, 0);
+}
+
 function monthlyTotal(list, kind, reference = new Date()) {
   return list
     .filter(i => i.kind === kind && i.active && !(i.isCredit && creditRemaining(i, reference) <= 0))
@@ -246,9 +257,10 @@ function renderMonth() {
   const fixed = monthlyTotal(items, "expense");
   const leftover = income - fixed;
   const monthCharges = monthlyCharges(items, cur);
-  const cardBase = card => chargeTotal(monthCharges.filter(i => (i.debitCard || 0) === card));
-  const base1 = cardBase(1);
-  const base2 = cardBase(2);
+  const card1Charges = cardCharges(items, 1, cur);
+  const card2Charges = cardCharges(items, 2, cur);
+  const base1 = chargeTotal(card1Charges);
+  const base2 = chargeTotal(card2Charges);
   const eff1 = Math.min(unplannedBudget1, Math.max(0, leftover - unplannedBudget2));
   const eff2 = Math.min(unplannedBudget2, Math.max(0, leftover - unplannedBudget1));
   const effective = eff1 + eff2;
@@ -274,9 +286,9 @@ function renderMonth() {
       <p class="caption">Jour ${today} sur ${days}</p>
     </section>
 
-    ${deferredCardSection(1, base1, eff1, monthCharges.filter(i => (i.debitCard || 0) === 1))}
+    ${deferredCardSection(1, base1, eff1, card1Charges)}
 
-    ${deferredCardSection(2, base2, eff2, monthCharges.filter(i => (i.debitCard || 0) === 2))}
+    ${deferredCardSection(2, base2, eff2, card2Charges)}
 
     <section class="card">
       <h2>Dépenses non prévues</h2>
